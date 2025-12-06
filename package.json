@@ -1,0 +1,73 @@
+{
+  "name": "agentcast",
+  "version": "0.0.10",
+  "description": "Live browser sessions for AI agents",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./browser-agent": {
+      "types": "./dist/browser-agent.d.ts",
+      "import": "./dist/browser-agent.js"
+    },
+    "./with-browser": {
+      "types": "./dist/with-browser.d.ts",
+      "import": "./dist/with-browser.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "effect": "^3.19.6"
+  },
+  "devDependencies": {
+    "@cloudflare/containers": "^0.0.30",
+    "@cloudflare/workers-types": "^4.20251125.0",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8",
+    "zod": "^4.0.0"
+  },
+  "peerDependencies": {
+    "@cloudflare/containers": "^0.0.30",
+    "@cloudflare/workers-types": "^4.0.0",
+    "zod": "^4.0.0",
+    "agents": "^0.1.6"
+  },
+  "peerDependenciesMeta": {
+    "@cloudflare/containers": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "browser",
+    "automation",
+    "ai",
+    "agent",
+    "cloudflare",
+    "workers",
+    "durable-objects",
+    "containers"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acoyfellow/agentcast"
+  }
+}
