@@ -17,10 +17,6 @@
     "./browser-agent": {
       "types": "./dist/browser-agent.d.ts",
       "import": "./dist/browser-agent.js"
-    },
-    "./with-browser": {
-      "types": "./dist/with-browser.d.ts",
-      "import": "./dist/with-browser.js"
     }
   },
   "files": [
