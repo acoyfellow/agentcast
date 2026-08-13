@@ -27,6 +27,7 @@
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest --watch",
+    "prepare": "tsc",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
