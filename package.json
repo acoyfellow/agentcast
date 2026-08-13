@@ -25,7 +25,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
     "prepublishOnly": "bun run build"
   },
@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@cloudflare/containers": "^0.3.7",
+    "@cloudflare/vitest-pool-workers": "^0.21.2",
     "@cloudflare/workers-types": "^5.20260813.1",
     "@types/node": "^26.2.0",
     "typescript": "^7.0.2",

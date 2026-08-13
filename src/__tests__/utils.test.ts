@@ -20,7 +20,7 @@ import {
   SERVER_STATUS,
   CLIENT_STATUS,
   DEFAULTS,
-} from '../index.js';
+} from '../client.js';
 
 describe('Error Classes', () => {
   it('should create ConnectionError with message', () => {

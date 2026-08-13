@@ -72,5 +72,4 @@ export {
   type ContainerErrors,
 } from './errors.js';
 
-// Export BrowserAgent class (Workers-only)
 export { BrowserAgent, type SessionState } from './browser-agent.js';
