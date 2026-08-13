@@ -1,0 +1,25 @@
+.npmrc
+  s_612b5c736dcff0::t_31ffba35f4f803 1
+bun.lock
+  s_612b5c736dcff0::t_d3511835c29e61 1-1969
+package.json
+  s_612b5c736dcff0::t_d53af570b2d0cf 28,37
+src/__tests__/utils.test.ts
+  s_612b5c736dcff0::t_2ec1cbf029c7c7 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0def8e7f939acd4785befbe234a2c01f1ef9668f",
+  "prompts": {},
+  "sessions": {
+    "s_612b5c736dcff0": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019fd694-c515-748e-ac57-3546b0458143",
+        "model": "grok-4.6"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
