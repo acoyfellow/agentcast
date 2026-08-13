@@ -1,9 +1,4 @@
-/**
- * Effect-based container operations
- * 
- * Handles all interaction with Cloudflare Containers using Effect for
- * retries, timeouts, and error handling.
- */
+
 
 import * as Effect from 'effect/Effect';
 import * as Schedule from 'effect/Schedule';
@@ -24,15 +19,17 @@ export interface BrowserOptions {
   viewport?: { width: number; height: number };
   startUrl?: string;
   colorScheme?: 'light' | 'dark';
-  apiKey?: string; // API key to pass to container (workaround for envVars timing)
-  fingerprint?: BrowserFingerprint; // Optional browser fingerprint
+  gatewayUrl?: string;
+  fingerprint?: BrowserFingerprint;
+  
+  diagnostic?: boolean;
 }
 
 export interface ContainerResponse {
   success: boolean;
   wsEndpoint?: string;
   error?: string;
-  browserReady?: boolean; // Browser initialization status
+  browserReady?: boolean;
 }
 
 function isRetryableError(error: unknown): boolean {
@@ -57,40 +54,33 @@ function isNonRetryableError(error: unknown): boolean {
   );
 }
 
-/**
- * Circuit breaker state per session
- * Tracks consecutive failures and opens circuit after threshold
- */
+
 const circuitBreakerState = new Map<string, { failures: number; lastFailure: number; open: boolean }>();
 
-const CIRCUIT_BREAKER_THRESHOLD = 5; // Failures before opening
-const CIRCUIT_BREAKER_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-const CIRCUIT_BREAKER_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes cooldown
+const CIRCUIT_BREAKER_THRESHOLD = 5;
+const CIRCUIT_BREAKER_WINDOW_MS = 5 * 60 * 1000;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 10 * 60 * 1000;
 
 function checkCircuitBreaker(sessionId: string): boolean {
   const state = circuitBreakerState.get(sessionId);
-  if (!state) return true; // No failures yet, allow
+  if (!state) return true;
 
   const now = Date.now();
 
-  // Reset if outside failure window
   if (now - state.lastFailure > CIRCUIT_BREAKER_WINDOW_MS) {
     circuitBreakerState.delete(sessionId);
     return true;
   }
 
-  // Check if circuit is open
   if (state.open) {
-    // Check if cooldown period has passed
     if (now - state.lastFailure > CIRCUIT_BREAKER_COOLDOWN_MS) {
-      // Reset circuit breaker
       circuitBreakerState.delete(sessionId);
       return true;
     }
-    return false; // Circuit still open
+    return false;
   }
 
-  return true; // Circuit closed, allow
+  return true;
 }
 
 function recordCircuitBreakerFailure(sessionId: string): void {
@@ -107,26 +97,24 @@ function recordCircuitBreakerFailure(sessionId: string): void {
 }
 
 function recordCircuitBreakerSuccess(sessionId: string): void {
-  // Reset on success
   circuitBreakerState.delete(sessionId);
 }
 
 const containerRetrySchedule = pipe(
-  Schedule.exponential(1000, 2), // 1s, 2s, 4s, 8s...
-  Schedule.union(Schedule.spaced(5000)), // Cap at 5s
-  Schedule.compose(Schedule.recurs(20)), // Max 20 attempts
+  Schedule.exponential(1000, 2),
+  Schedule.union(Schedule.spaced(5000)),
+  Schedule.compose(Schedule.recurs(20)),
   Schedule.whileInput(isRetryableError),
 );
 
-/**
- * Start a browser container
- */
+
 export const startBrowser = (
   containerNamespace: DurableObjectNamespace<any>,
   sessionId: string,
   options: BrowserOptions,
 ): Effect.Effect<ContainerResponse, ContainerStartError> => {
-  // Check circuit breaker
+  let lastAttemptErrorMessage: string | null = null;
+
   if (!checkCircuitBreaker(sessionId)) {
     return Effect.fail(
       new ContainerStartError({
@@ -141,25 +129,31 @@ export const startBrowser = (
     viewport: options.viewport ?? { width: 1280, height: 720 },
     startUrl: options.startUrl,
     colorScheme: options.colorScheme ?? 'dark',
-    apiKey: options.apiKey, // Pass API key to container
-    fingerprint: options.fingerprint, // Pass fingerprint to container
+    gatewayUrl: options.gatewayUrl,
+    fingerprint: options.fingerprint,
   });
 
-  return pipe(
+  const attemptTimeoutMs = options.diagnostic ? 120_000 : 90_000;
+
+  const baseEffect = pipe(
     Effect.tryPromise({
       try: async () => {
         console.log(`[SDK] startBrowser: Calling container.fetch for ${sessionId.slice(0, 8)}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), attemptTimeoutMs);
         const request = switchPort(
           new Request('http://container/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body,
+            signal: controller.signal,
           }),
           8080,
         );
         console.log(`[SDK] startBrowser: Request created, calling container.fetch...`);
         const res = await container.fetch(request);
         console.log(`[SDK] startBrowser: Got response, status=${res.status}`);
+        clearTimeout(timeoutId);
 
         if (!res.ok) {
           const errorText = await res.text().catch(() => 'failed to read error');
@@ -185,6 +179,7 @@ export const startBrowser = (
       },
       catch: (error) => {
         recordCircuitBreakerFailure(sessionId);
+        lastAttemptErrorMessage = error instanceof Error ? error.message : String(error);
         if (isNonRetryableError(error)) {
           return new ContainerStartError({
             message: error instanceof Error ? error.message : String(error),
@@ -195,12 +190,16 @@ export const startBrowser = (
         return error;
       },
     }),
+  );
+
+  const withRetryAndTimeout = pipe(
+    baseEffect,
     Effect.retry(containerRetrySchedule),
     Effect.timeoutFail({
-      duration: Duration.seconds(120),
+      duration: Duration.seconds(240),
       onTimeout: () =>
         new ContainerStartError({
-          message: 'Container start timeout after 2 minutes',
+          message: `Container start timeout after 4 minutes${lastAttemptErrorMessage ? `; last error: ${lastAttemptErrorMessage}` : ''}`,
           sessionId,
         }),
     }),
@@ -213,13 +212,35 @@ export const startBrowser = (
       });
     }),
   );
+
+  const diagnosticFailFast = pipe(
+    baseEffect,
+    Effect.timeoutFail({
+      duration: Duration.seconds(120),
+      onTimeout: () =>
+        new ContainerStartError({
+          message: `Container start timeout after 120s (diagnostic)${lastAttemptErrorMessage ? `; last error: ${lastAttemptErrorMessage}` : ''}`,
+          sessionId,
+        }),
+    }),
+    Effect.mapError((error) => {
+      if (error instanceof ContainerStartError) return error;
+      return new ContainerStartError({
+        message: error instanceof Error ? error.message : String(error),
+        sessionId,
+        cause: error,
+      });
+    }),
+  );
+
+  if (options.diagnostic) return diagnosticFailFast;
+
+  return pipe(
+    withRetryAndTimeout,
+  );
 };
 
-/**
- * Stop a browser container
- * 
- * Best-effort: logs errors but doesn't fail (container may already be stopped)
- */
+
 export const stopBrowser = (
   containerNamespace: DurableObjectNamespace<any>,
   sessionId: string,
@@ -240,16 +261,34 @@ export const stopBrowser = (
         }),
     }),
     Effect.catchAll((error) => {
-      // Log error but don't fail - container may already be stopped/gone
       console.warn(`[stopBrowser] ${sessionId}: ${error instanceof Error ? error.message : String(error)}`);
       return Effect.void;
     }),
   );
 };
 
-/**
- * Send an instruction to the container
- */
+
+function isRetryableInstructionError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    msg.includes('Connection refused') ||
+    msg.includes('container port not found') ||
+    msg.includes('Browser not ready') ||
+    msg.includes('BROWSER_NOT_READY') ||
+    msg.includes('fetch failed') ||
+    msg.includes('network') ||
+    msg.includes('timeout')
+  );
+}
+
+const instructionRetrySchedule = pipe(
+  Schedule.exponential(500, 2),
+  Schedule.union(Schedule.spaced(3000)),
+  Schedule.compose(Schedule.recurs(5)),
+  Schedule.whileInput(isRetryableInstructionError),
+);
+
+
 export const sendInstruction = (
   containerNamespace: DurableObjectNamespace<any>,
   sessionId: string,
@@ -257,7 +296,7 @@ export const sendInstruction = (
 ): Effect.Effect<{ success: boolean; response?: string }, BrowserError> => {
   const container = getContainer(containerNamespace, sessionId);
 
-  return pipe(
+  const baseEffect = pipe(
     Effect.tryPromise({
       try: async () => {
         console.log(`[SDK] sendInstruction starting for ${sessionId.slice(0, 8)}, instruction: ${instruction.substring(0, 50)}...`);
@@ -282,23 +321,36 @@ export const sendInstruction = (
 
         const data = await res.json() as { success: boolean; response?: string };
         console.log(`[SDK] sendInstruction parsed response for ${sessionId.slice(0, 8)}:`, JSON.stringify(data));
-        console.log(`[SDK] sendInstruction returning data for ${sessionId.slice(0, 8)}:`, data);
         return data;
       },
       catch: (error) => {
-        console.error(`[SDK] sendInstruction caught error for ${sessionId.slice(0, 8)}:`, error);
-        return new BrowserError({
-          message: `Failed to send instruction: ${error instanceof Error ? error.message : String(error)}`,
-          cause: error,
-        });
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`[SDK] sendInstruction caught error for ${sessionId.slice(0, 8)}:`, msg);
+        return error;
       },
+    }),
+  );
+
+  return pipe(
+    baseEffect,
+    Effect.retry(instructionRetrySchedule),
+    Effect.timeoutFail({
+      duration: Duration.seconds(180),
+      onTimeout: () => new BrowserError({
+        message: `Instruction timeout after 3 minutes: ${instruction.substring(0, 50)}...`,
+      }),
+    }),
+    Effect.mapError((error) => {
+      if (error instanceof BrowserError) return error;
+      return new BrowserError({
+        message: `Failed to send instruction: ${error instanceof Error ? error.message : String(error)}`,
+        cause: error,
+      });
     }),
   );
 };
 
-/**
- * Resize browser viewport
- */
+
 export const resizeBrowser = (
   containerNamespace: DurableObjectNamespace<any>,
   sessionId: string,
@@ -334,9 +386,7 @@ export const resizeBrowser = (
   );
 };
 
-/**
- * Reload browser page
- */
+
 export const reloadBrowser = (
   containerNamespace: DurableObjectNamespace<any>,
   sessionId: string,
@@ -364,9 +414,7 @@ export const reloadBrowser = (
   );
 };
 
-/**
- * Navigate browser to URL
- */
+
 export const navigateBrowser = (
   containerNamespace: DurableObjectNamespace<any>,
   sessionId: string,
@@ -386,9 +434,7 @@ export const navigateBrowser = (
   );
 };
 
-/**
- * Extract structured data from the current page
- */
+
 export const extractData = <T>(
   containerNamespace: DurableObjectNamespace<any>,
   sessionId: string,
@@ -401,16 +447,13 @@ export const extractData = <T>(
       try: async () => {
         console.log(`[SDK] extractData starting for ${sessionId.slice(0, 8)}`);
 
-        // Serialize Zod schema - we need to pass the schema definition
-        // Stagehand expects the schema object directly, so we'll pass it as-is
-        // The container will handle the actual extraction
         const res = await container.fetch(
           switchPort(
             new Request('http://container/extract', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                schema: schema._def, // Zod schema definition
+                schema: schema._def,
                 instruction: 'Extract data matching the provided schema from the current page',
               }),
             }),
@@ -432,7 +475,6 @@ export const extractData = <T>(
           throw new Error(data.error || 'Extraction failed');
         }
 
-        // Validate with schema
         const parsed = schema.parse(data.data);
         console.log(`[SDK] extractData parsed and validated response for ${sessionId.slice(0, 8)}`);
         return parsed;
@@ -444,6 +486,29 @@ export const extractData = <T>(
           cause: error,
         });
       },
+    }),
+  );
+};
+
+export const getContainerStatus = (
+  containerNamespace: DurableObjectNamespace<any>,
+  sessionId: string,
+): Effect.Effect<{ running: boolean; url?: string | null }, BrowserError> => {
+  const container = getContainer(containerNamespace, sessionId);
+  return pipe(
+    Effect.tryPromise({
+      try: async () => {
+        const res = await container.fetch(
+          switchPort(new Request('http://container/status'), 8080),
+        );
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        return await res.json() as { running: boolean; url?: string | null };
+      },
+      catch: (error) =>
+        new BrowserError({
+          message: `Failed to read container status: ${error instanceof Error ? error.message : String(error)}`,
+          cause: error,
+        }),
     }),
   );
 };

@@ -1,25 +1,4 @@
-/**
- * BrowserAgent - Abstract class for browser automation with Cloudflare Agents SDK
- * 
- * Extends Agent to provide browser capabilities without the recursion issues
- * of the withBrowser mixin pattern.
- * 
- * @example
- * ```typescript
- * import { BrowserAgent } from 'agentcast';
- * 
- * export class WebAgent extends BrowserAgent {
- *   protected getContainer() {
- *     return this.env.CONTAINER;
- *   }
- *   
- *   async run() {
- *     await this.goto('https://example.com');
- *     await this.act('click the login button');
- *   }
- * }
- * ```
- */
+
 
 import { Agent } from 'agents';
 import type { DurableObjectNamespace } from '@cloudflare/workers-types';
@@ -28,6 +7,7 @@ import * as Effect from 'effect/Effect';
 import {
   startBrowser,
   stopBrowser,
+  getContainerStatus,
   sendInstruction,
   resizeBrowser,
   reloadBrowser,
@@ -58,56 +38,36 @@ export interface SessionState {
   error?: string; // Error message if status is 'error'
 }
 
-/**
- * Abstract class that extends Agent with browser automation capabilities
- */
+
 export abstract class BrowserAgent extends Agent {
   protected _session: SessionState | null = null;
   protected _workerUrl: string = '';
   private _confirmationPromise: { resolve: (value: boolean) => void; reject: (error: Error) => void } | null = null;
 
-  /**
-   * Get the container namespace - must be implemented by subclasses
-   */
+  
   protected abstract getContainer(): DurableObjectNamespace<any>;
 
-  /**
-   * Get session ID from agent name
-   * Only accessed in methods, not during initialization
-   */
+  
   private get sessionId(): string {
     return this.name;
   }
 
-  /**
-   * Get view URL for the session
-   */
+  
   get viewUrl(): string {
     return this._session?.viewUrl ?? '';
   }
 
-  /**
-   * Get CDP WebSocket URL for the session
-   */
+  
   get cdpUrl(): string {
     return this._session?.cdpUrl ?? '';
   }
 
-  /**
-   * Get current session status
-   */
+  
   get status(): SessionStatus {
     return this._session?.status ?? 'stopped';
   }
 
-  /**
-   * Initialize browser session
-   * 
-   * MUST actually start the browser - no fake sessions.
-   * Waits for browser to be ready before returning.
-   * 
-   * @throws {ContainerStartError} If browser fails to start
-   */
+  
   async initialize(options: {
     sessionId: string;
     name?: string;
@@ -115,6 +75,9 @@ export abstract class BrowserAgent extends Agent {
     startUrl?: string;
     workerUrl?: string;
     colorScheme?: 'light' | 'dark';
+    gatewayUrl?: string;
+    diagnostic?: boolean;
+    fingerprint?: { userAgent?: string; platform?: string; languages?: string[] };
   }): Promise<void> {
     const sessionId = options.sessionId;
     const baseUrl = options.workerUrl || this._workerUrl || getWorkerUrl();
@@ -128,7 +91,6 @@ export abstract class BrowserAgent extends Agent {
       colorScheme: options.colorScheme,
     });
 
-    // Set status to starting
     this._session = {
       id: sessionId,
       name: options.name,
@@ -141,7 +103,6 @@ export abstract class BrowserAgent extends Agent {
       colorScheme: options.colorScheme ?? 'dark',
     };
 
-    // Actually start the browser - wait for it to be ready
     const startTime = Date.now();
     try {
       console.log(`[BrowserAgent.initialize] Calling startBrowser for: ${sessionId}`);
@@ -150,13 +111,15 @@ export abstract class BrowserAgent extends Agent {
           viewport: this._session.viewport,
           startUrl: options.startUrl,
           colorScheme: this._session.colorScheme,
+          gatewayUrl: options.gatewayUrl || `${baseUrl}/openai/v1`,
+          diagnostic: options.diagnostic,
+          fingerprint: options.fingerprint,
         })
       );
 
       const elapsed = Date.now() - startTime;
       console.log(`[BrowserAgent.initialize] Browser started successfully for ${sessionId} in ${elapsed}ms`, data);
 
-      // Browser started successfully
       if (this._session) {
         this._session.status = 'ready';
         this._session.wsEndpoint = data.wsEndpoint;
@@ -165,7 +128,6 @@ export abstract class BrowserAgent extends Agent {
       const elapsed = Date.now() - startTime;
       console.error(`[BrowserAgent.initialize] Browser start failed for ${sessionId} after ${elapsed}ms:`, error);
 
-      // Browser failed to start - set error status and throw
       if (this._session) {
         this._session.status = 'error';
         this._session.error = error instanceof Error ? error.message : String(error);
@@ -183,19 +145,33 @@ export abstract class BrowserAgent extends Agent {
     }
   }
 
-  /**
-   * Ensure browser is initialized before use
-   * Auto-initializes if not ready (similar to with-browser.ts)
-   */
+  private async ensureLiveContainer(): Promise<void> {
+    if (!this._session) return;
+    try {
+      const status = await Effect.runPromise(
+        getContainerStatus(this.getContainer(), this._session.id),
+      );
+      if (status.running) return;
+    } catch {
+    }
+    this._session.status = 'starting';
+    await this.initialize({
+      sessionId: this._session.id,
+      name: this._session.name,
+      viewport: this._session.viewport,
+      workerUrl: this._workerUrl,
+      colorScheme: this._session.colorScheme,
+    });
+  }
+
+  
   private async ensureInitialized(): Promise<void> {
-    // If already ready, we're good
     if (this._session?.status === 'ready') {
       return;
     }
 
     const sessionId = this._session?.id ?? this.sessionId;
 
-    // If status is 'error', throw immediately
     if (this._session?.status === 'error') {
       throw new SessionNotConnectedError({
         message: this._session.error ?? 'Browser initialization failed',
@@ -203,7 +179,6 @@ export abstract class BrowserAgent extends Agent {
       });
     }
 
-    // If status is 'starting', wait for it to become ready
     const currentStatus = this._session?.status;
     if (currentStatus === 'starting') {
       let attempts = 0;
@@ -212,7 +187,6 @@ export abstract class BrowserAgent extends Agent {
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
       }
-      // Check final status after waiting (status can change during async operations)
       const finalStatus = this._session?.status as SessionStatus | undefined;
       if (finalStatus === 'ready') {
         return;
@@ -229,7 +203,6 @@ export abstract class BrowserAgent extends Agent {
       });
     }
 
-    // If not initialized or stopped, try to initialize
     if (!this._session || this._session.status === 'stopped') {
       const workerUrl = this._workerUrl || getWorkerUrl();
       const viewport = this._session?.viewport ?? { width: 1280, height: 720 };
@@ -244,7 +217,6 @@ export abstract class BrowserAgent extends Agent {
         colorScheme,
       });
 
-      // Wait a bit for status to update (initialize() sets status to 'ready' when done)
       let attempts = 0;
       const maxAttempts = 60;
       while (attempts < maxAttempts) {
@@ -262,7 +234,6 @@ export abstract class BrowserAgent extends Agent {
         attempts++;
       }
 
-      // Timeout - check final status
       const finalStatus = this._session?.status as SessionStatus | undefined;
       if (finalStatus !== 'ready') {
         throw new SessionNotConnectedError({
@@ -273,16 +244,13 @@ export abstract class BrowserAgent extends Agent {
       return;
     }
 
-    // Fallback: throw if we somehow get here
     throw new SessionNotConnectedError({
       message: 'Browser not initialized or not ready',
       sessionId,
     });
   }
 
-  /**
-   * Navigate browser to URL
-   */
+  
   async goto(url: string): Promise<void> {
     await this.ensureInitialized();
 
@@ -293,22 +261,43 @@ export abstract class BrowserAgent extends Agent {
     this._session!.lastActivity = Date.now();
   }
 
-  /**
-   * Send an instruction to the browser
-   */
-  async act(instruction: string): Promise<void> {
+  
+  async act(instruction: string): Promise<{ success: boolean; response?: string }> {
     await this.ensureInitialized();
+    await this.ensureLiveContainer();
 
-    await Effect.runPromise(
+    const result = await Effect.runPromise(
       sendInstruction(this.getContainer(), this._session!.id, instruction)
     );
 
     this._session!.lastActivity = Date.now();
+    return result;
   }
 
-  /**
-   * Extract structured data from the current page
-   */
+  
+  async waitForReady(timeoutMs: number = 60000): Promise<void> {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (this._session?.status === 'ready') {
+        return;
+      }
+      if (this._session?.status === 'error') {
+        throw new SessionNotConnectedError({
+          message: this._session.error ?? 'Browser initialization failed',
+          sessionId: this._session.id,
+        });
+      }
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    throw new SessionNotConnectedError({
+      message: `Timeout waiting for browser to be ready after ${timeoutMs}ms`,
+      sessionId: this._session?.id ?? 'unknown',
+    });
+  }
+
+  
   async extract<T>(schema: z.ZodSchema<T>): Promise<T> {
     await this.ensureInitialized();
 
@@ -320,9 +309,7 @@ export abstract class BrowserAgent extends Agent {
     return result;
   }
 
-  /**
-   * Resize browser viewport
-   */
+  
   async resize(viewport: { width: number; height: number }): Promise<void> {
     await this.ensureInitialized();
 
@@ -334,9 +321,7 @@ export abstract class BrowserAgent extends Agent {
     this._session!.lastActivity = Date.now();
   }
 
-  /**
-   * Reload browser page
-   */
+  
   async reload(): Promise<void> {
     await this.ensureInitialized();
 
@@ -347,9 +332,7 @@ export abstract class BrowserAgent extends Agent {
     this._session!.lastActivity = Date.now();
   }
 
-  /**
-   * Stop the browser session
-   */
+  
   async stop(): Promise<void> {
     if (!this._session) {
       return;
@@ -362,16 +345,13 @@ export abstract class BrowserAgent extends Agent {
         stopBrowser(this.getContainer(), this._session.id)
       );
     } catch (error) {
-      // Log but don't throw - container may already be stopped
       console.warn(`[BrowserAgent] Failed to stop browser: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     this._session.status = 'stopped';
   }
 
-  /**
-   * Pause and wait for human confirmation
-   */
+  
   async confirm(prompt: string, options?: { timeout?: number }): Promise<boolean> {
     if (!this._session) {
       throw new SessionNotConnectedError({
@@ -394,9 +374,7 @@ export abstract class BrowserAgent extends Agent {
     });
   }
 
-  /**
-   * Resolve a pending confirmation
-   */
+  
   resolveConfirmation(value: boolean): void {
     if (this._confirmationPromise) {
       this._confirmationPromise.resolve(value);
@@ -404,12 +382,7 @@ export abstract class BrowserAgent extends Agent {
     }
   }
 
-  /**
-   * Take a screenshot
-   * 
-   * @deprecated Screenshot functionality not yet implemented
-   * @throws {ScreenshotError} Always throws - not implemented
-   */
+  
   async screenshot(): Promise<Buffer> {
     throw new ScreenshotError({
       message: 'Screenshot functionality is not yet implemented. This will be available in a future release.',
