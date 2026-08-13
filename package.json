@@ -30,20 +30,20 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "effect": "^3.19.6"
+    "effect": "^3.22.1"
   },
   "devDependencies": {
-    "@cloudflare/containers": "^0.0.30",
-    "@cloudflare/workers-types": "^4.20251125.0",
-    "@types/node": "^24.10.1",
-    "typescript": "^5.9.3",
-    "vitest": "^2.1.8",
-    "zod": "^4.0.0"
+    "@cloudflare/containers": "^0.3.7",
+    "@cloudflare/workers-types": "^5.20260813.1",
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@cloudflare/containers": "^0.0.30",
-    "@cloudflare/workers-types": "^4.0.0",
-    "zod": "^4.0.0",
+    "@cloudflare/containers": "^0.3.7",
+    "@cloudflare/workers-types": "^5.0.0",
+    "zod": "^4.4.3",
     "agents": "^0.1.6"
   },
   "peerDependenciesMeta": {
