@@ -1,6 +1,6 @@
 {
   "name": "agentcast",
-  "version": "0.0.10",
+  "version": "0.0.14",
   "description": "Live browser sessions for AI agents",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,14 @@
     "./browser-agent": {
       "types": "./dist/browser-agent.d.ts",
       "import": "./dist/browser-agent.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js"
+    },
+    "./network-har": {
+      "types": "./dist/network-har.d.ts",
+      "import": "./dist/network-har.js"
     }
   },
   "files": [

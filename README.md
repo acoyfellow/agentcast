@@ -9,6 +9,7 @@ AgentCast extends the [Cloudflare Agents SDK](https://developers.cloudflare.com/
 - **Built-in browser environment**: No extra setup—browser automation comes out of the box with all Agents SDK features
 - **Live debugging**: Debug agents by watching them, not guessing from logs
 - **Session tracking**: Monitor what your agents are doing via activity timestamps and session status
+- **Reusable HARs**: Start a bounded capture, persist an encrypted HAR plus a redacted network receipt, and replay that receipt into another same-tenant session. Public artifacts never include cookies, Authorization, raw paths, query strings, or bodies.
 
 ## Installation
 
@@ -221,6 +222,25 @@ import { CLIENT_STATUS, SERVER_STATUS, type SessionStatus } from 'agentcast';
 ```
 
 These are safe to use in any environment and don't require Workers runtime.
+
+## Network HAR receipts
+
+Import the HAR contracts from `agentcast/network-har`. Hosts persist the encrypted capture privately and expose only a redacted receipt.
+
+```typescript
+import {
+  buildNetworkReceipt,
+  parseNetworkRecordRequest,
+  parseNetworkReplayRequest,
+  redactNetworkCapture,
+} from 'agentcast/network-har';
+```
+
+- `parseNetworkRecordRequest` — bounded `maxDurationMs` (1s–5m) and `maxEntries` (1–5000)
+- `redactNetworkCapture` / `buildNetworkReceipt` — public entries are origin, hostname, method, status, type, timing, and sizes only
+- `parseNetworkReplayRequest` — replay a stored record into another same-tenant `targetSessionId`
+
+Raw URLs, cookies, Authorization, request/response bodies, and query strings are dropped from receipts. Encrypted HARs stay behind a capability-gated store; they are not a public API.
 
 ## Requirements
 

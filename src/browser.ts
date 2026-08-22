@@ -20,6 +20,7 @@ export interface BrowserOptions {
   startUrl?: string;
   colorScheme?: 'light' | 'dark';
   gatewayUrl?: string;
+  internalAiCredential?: string;
   fingerprint?: BrowserFingerprint;
   
   diagnostic?: boolean;
@@ -130,6 +131,7 @@ export const startBrowser = (
     startUrl: options.startUrl,
     colorScheme: options.colorScheme ?? 'dark',
     gatewayUrl: options.gatewayUrl,
+    internalAiCredential: options.internalAiCredential,
     fingerprint: options.fingerprint,
   });
 

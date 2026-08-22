@@ -30,8 +30,19 @@ export type {
   SessionStatus,
   SessionInfo,
   SessionEventMap,
-  BrowserFingerprint,
 } from './types.js';
+
+export type {
+  BrowserCheckpointState,
+  BrowserFingerprint,
+  BrowserScreen,
+  BrowserSessionStatus,
+  JsonArray,
+  JsonObject,
+  JsonPrimitive,
+  JsonValue,
+  Viewport,
+} from './protocol.js';
 
 // Export error classes (safe for all environments - just classes)
 export {
@@ -52,4 +63,49 @@ export {
   type BrowserErrors,
   type ContainerErrors,
 } from './errors.js';
+
+export {
+  ContainerOperationError,
+  classifyError,
+  createRetryPolicy,
+  errorInfo,
+  containerStartRetryPolicy,
+  instructionRetryPolicy,
+  type ClassifiedError,
+  type ErrorClassification,
+  type ErrorInfo,
+  type RetryPolicy,
+} from './error-retry.js';
+
+export {
+  DEFAULT_SESSION_STOP_TIMEOUT_MS,
+  planSessionStops,
+  stopSessionsInParallel,
+  withStopTimeout,
+  type ClosableSession,
+  type SessionStopPlan,
+} from './session-stop.js';
+
+export {
+  NETWORK_HAR_ID_PATTERN,
+  NETWORK_HOSTNAME_PATTERN,
+  buildNetworkReceipt,
+  hasForbiddenNetworkHeaders,
+  isNetworkHarId,
+  parseNetworkRecordRequest,
+  parseNetworkReplayRequest,
+  redactNetworkCapture,
+  redactNetworkUrl,
+  type NetworkHttpMethod,
+  type NetworkReceipt,
+  type NetworkReceiptEntry,
+  type NetworkRecordHandle,
+  type NetworkRecordRequest,
+  type NetworkRecordStatus,
+  type NetworkReplayRequest,
+  type NetworkReplayResult,
+  type NetworkReplayStatus,
+  type NetworkResourceType,
+  type RawNetworkCapture,
+} from './network-har.js';
 

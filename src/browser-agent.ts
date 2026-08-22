@@ -36,6 +36,8 @@ export interface SessionState {
   viewport: { width: number; height: number };
   colorScheme?: 'light' | 'dark';
   error?: string; // Error message if status is 'error'
+  currentUrl?: string;
+  currentUrlObservedAt?: number;
 }
 
 
@@ -46,6 +48,13 @@ export abstract class BrowserAgent extends Agent {
 
   
   protected abstract getContainer(): DurableObjectNamespace<any>;
+
+  protected getRecoveryInitializeOptions(): {
+    gatewayUrl?: string;
+    internalAiCredential?: string;
+  } {
+    return {};
+  }
 
   
   private get sessionId(): string {
@@ -76,6 +85,7 @@ export abstract class BrowserAgent extends Agent {
     workerUrl?: string;
     colorScheme?: 'light' | 'dark';
     gatewayUrl?: string;
+    internalAiCredential?: string;
     diagnostic?: boolean;
     fingerprint?: { userAgent?: string; platform?: string; languages?: string[] };
   }): Promise<void> {
@@ -112,6 +122,7 @@ export abstract class BrowserAgent extends Agent {
           startUrl: options.startUrl,
           colorScheme: this._session.colorScheme,
           gatewayUrl: options.gatewayUrl || `${baseUrl}/openai/v1`,
+          internalAiCredential: options.internalAiCredential,
           diagnostic: options.diagnostic,
           fingerprint: options.fingerprint,
         })
@@ -161,6 +172,7 @@ export abstract class BrowserAgent extends Agent {
       viewport: this._session.viewport,
       workerUrl: this._workerUrl,
       colorScheme: this._session.colorScheme,
+      ...this.getRecoveryInitializeOptions(),
     });
   }
 
@@ -215,6 +227,7 @@ export abstract class BrowserAgent extends Agent {
         viewport,
         workerUrl,
         colorScheme,
+        ...this.getRecoveryInitializeOptions(),
       });
 
       let attempts = 0;

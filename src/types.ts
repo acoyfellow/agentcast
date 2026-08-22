@@ -108,28 +108,5 @@ export interface CreateSessionResponse {
   cdpUrl: string;
 }
 
-// ============================================================================
-// BROWSER FINGERPRINT TYPES
-// ============================================================================
-
-export interface BrowserFingerprint {
-  userAgent?: string;
-  platform?: string;
-  languages?: string[];
-  screen?: {
-    width: number;
-    height: number;
-    availWidth?: number;
-    availHeight?: number;
-    colorDepth?: number;
-    pixelDepth?: number;
-    devicePixelRatio?: number;
-  };
-  viewport?: { width: number; height: number };
-  timezone?: string;
-  hardwareConcurrency?: number;
-  maxTouchPoints?: number;
-  // Apify fingerprint format compatibility
-  fingerprint?: any; // Raw Apify fingerprint object
-}
+export type { BrowserFingerprint } from './protocol.js';
 
