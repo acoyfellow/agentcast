@@ -1,0 +1,19 @@
+package.json
+  s_952b167abec97a::t_1336cb0606b573 3,28-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a3f2251ec0e0847ab022fe63b1ec7ce734923cd0",
+  "prompts": {},
+  "sessions": {
+    "s_952b167abec97a": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019fd391-aa11-7719-9c9c-d9bc68c3f904",
+        "model": "grok-4.6"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
