@@ -1,0 +1,45 @@
+package.json
+  s_6b3a8ae65276ec::t_50cad033fe6470 3,20-27
+src/__tests__/protocol.test.ts
+  s_952b167abec97a::t_6842e9e3e187f3 1-54
+src/client.ts
+  s_99b55ecf7d26fa::t_3cc0eede6a1e8f 35-46,67-111
+src/index.ts
+  s_99b55ecf7d26fa::t_dc87f8722d2d1d 20-31,52-96
+src/protocol.ts
+  s_952b167abec97a::t_ce367fcb8e5947 1-51
+src/types.ts
+  s_952b167abec97a::t_1552b53a4efa40 111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b90761c440ab7837d4a6e551cf489839a5749fb2",
+  "prompts": {},
+  "sessions": {
+    "s_6b3a8ae65276ec": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a01fc4-fe4b-7190-be33-e670f8f99c4d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    },
+    "s_952b167abec97a": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019fd391-aa11-7719-9c9c-d9bc68c3f904",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    },
+    "s_99b55ecf7d26fa": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a01133-f7dc-78e5-bff4-bbe27a662c2a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jordan Coeyman <jcoeyman@cloudflare.com>"
+    }
+  }
+}
