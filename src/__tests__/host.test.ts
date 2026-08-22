@@ -129,6 +129,20 @@ describe('agentcast host HTTP client', () => {
     })).toThrow(/secret field/);
   });
 
+  it('polls getSession until ready and rejects a workers.dev ticket', async () => {
+    const statuses = ['starting', 'ready'];
+    const host = new AgentCastHost({
+      token: 'cap-token',
+      fetch: mockFetch((url) => {
+        if (url.endsWith(`/api/session/${sessionId}`)) return { id: sessionId, status: statuses.shift() };
+        if (url.endsWith('/view-ticket')) return { ticketUrl: 'https://agentcast-worker.coy.workers.dev/ticket/x' };
+        throw new Error(url);
+      }),
+    });
+    expect((await host.waitForSession(sessionId, { intervalMs: 1, sleep: async () => undefined })).status).toBe('ready');
+    await expect(host.createViewerTicket(sessionId)).rejects.toMatchObject({ message: 'Viewer ticket URL is not a production ticket' });
+  });
+
   it('surfaces browser-not-ready as a typed host error', async () => {
     const host = new AgentCastHost({
       token: 'cap-token',

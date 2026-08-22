@@ -108,4 +108,21 @@ export {
   type HostInstructionResult,
   type HostNetworkReplayResult,
   type HostSessionStatus,
+  type HostViewerTicket,
+  type MyAxHttpsControlFlowInput,
+  type MyAxHttpsControlFlowResult,
+  type WaitForSessionOptions,
 } from './host.js';
+
+export {
+  assertScrubbedHar,
+  createFetchFromHar,
+  loadHarEntries,
+  matchHarEntry,
+  type HarContent,
+  type HarEntry,
+  type HarHeader,
+  type HarLog,
+  type HarRequest,
+  type HarResponse,
+} from './har-route.js';

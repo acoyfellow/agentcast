@@ -122,5 +122,9 @@ export {
   type HostInstructionResult,
   type HostNetworkReplayResult,
   type HostSessionStatus,
+  type HostViewerTicket,
+  type MyAxHttpsControlFlowInput,
+  type MyAxHttpsControlFlowResult,
+  type WaitForSessionOptions,
 } from './host.js';
 

@@ -262,6 +262,18 @@ const receipt = await host.stopNetworkRecord(sessionId);
 
 `AgentCastHost` refuses `*.workers.dev`, sends only `/api/*` HTTP, wakes the browser before HAR start, and rejects receipts that still contain cookies, Authorization, raw URLs, or extra fields.
 
+My AX production control flow over HTTPS:
+
+1. `POST /api/session` create
+2. poll `GET /api/session/:id` until `ready`
+3. `POST /api/session/:id/wake`
+4. `POST /api/session/:id/instruction`
+5. `POST /api/session/:id/view-ticket` (HTTP ticket URL only; the viewer itself is WebSocket)
+6. optional HAR start/stop/replay on `/api/session/:id/network-har*`
+7. `POST /api/session/:id/stop`
+
+`runMyAxHttpsControlFlow` is that sequence. Replay it from the scrubbed fixture with `createFetchFromHar` (`agentcast/har-route`). Do not HAR-replay `/cdp`, `/ws`, or `/view`.
+
 ## Requirements
 
 - Cloudflare Workers with Containers binding

@@ -29,6 +29,10 @@
     "./host": {
       "types": "./dist/host.d.ts",
       "import": "./dist/host.js"
+    },
+    "./har-route": {
+      "types": "./dist/har-route.d.ts",
+      "import": "./dist/har-route.js"
     }
   },
   "files": [

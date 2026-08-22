@@ -49,6 +49,32 @@ export interface HostNetworkReplayResult {
   readonly replayed?: number;
 }
 
+export interface WaitForSessionOptions {
+  readonly attempts?: number;
+  readonly intervalMs?: number;
+  readonly sleep?: (ms: number) => Promise<void>;
+}
+
+export interface HostViewerTicket {
+  readonly ticketUrl: string;
+}
+
+export interface MyAxHttpsControlFlowInput {
+  readonly name?: string;
+  readonly instruction: string;
+  readonly record?: NetworkRecordRequest;
+  readonly replayTargetSessionId?: string;
+}
+
+export interface MyAxHttpsControlFlowResult {
+  readonly sessionId: string;
+  readonly status: HostSessionStatus;
+  readonly instruction: HostInstructionResult;
+  readonly ticketUrl?: string;
+  readonly receipt?: NetworkReceipt;
+  readonly replayed?: number;
+}
+
 const receiptEntryKeys = new Set([
   'method',
   'status',
@@ -143,6 +169,59 @@ export class AgentCastHost {
   async instruct(sessionId: string, instruction: string): Promise<HostInstructionResult> {
     if (!instruction.trim()) throw new RangeError('Instruction is required');
     return this.requestJson('POST', `/api/session/${sessionId}/instruction`, { instruction }) as Promise<HostInstructionResult>;
+  }
+
+  async waitForSession(sessionId: string, options: WaitForSessionOptions = {}): Promise<HostSessionStatus> {
+    const attempts = options.attempts ?? 30;
+    const intervalMs = options.intervalMs ?? 250;
+    const sleep = options.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+    if (!Number.isInteger(attempts) || attempts < 1) throw new RangeError('attempts must be a positive integer');
+    let last: HostSessionStatus | undefined;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      last = await this.getSession(sessionId);
+      if (last.status === 'ready' || last.status === 'active') return last;
+      if (last.status === 'error') {
+        throw new ContainerOperationError(last.error || 'Browser session failed', 502);
+      }
+      if (attempt < attempts - 1) await sleep(intervalMs);
+    }
+    throw new ContainerOperationError(last?.error || 'Browser session did not become ready', 503);
+  }
+
+  async createViewerTicket(sessionId: string): Promise<HostViewerTicket> {
+    const payload = await this.requestJson('POST', `/api/session/${sessionId}/view-ticket`);
+    const ticketUrl = payload && typeof payload === 'object' && typeof (payload as { ticketUrl?: unknown }).ticketUrl === 'string'
+      ? (payload as { ticketUrl: string }).ticketUrl
+      : '';
+    if (!ticketUrl) throw new ApiError({ message: 'Viewer ticket was not issued', status: 502 });
+    const parsed = new URL(ticketUrl);
+    if (parsed.protocol !== 'https:' || parsed.hostname.endsWith('.workers.dev') || !parsed.pathname.startsWith('/ticket/')) {
+      throw new ApiError({ message: 'Viewer ticket URL is not a production ticket', status: 502 });
+    }
+    return { ticketUrl };
+  }
+
+  async runMyAxHttpsControlFlow(input: MyAxHttpsControlFlowInput): Promise<MyAxHttpsControlFlowResult> {
+    const created = await this.createSession({ name: input.name });
+    const status = await this.waitForSession(created.sessionId);
+    await this.wakeSession(created.sessionId);
+    const instruction = await this.instruct(created.sessionId, input.instruction);
+    const ticket = await this.createViewerTicket(created.sessionId);
+    let receipt: NetworkReceipt | undefined;
+    let replayed: number | undefined;
+    if (input.record) {
+      await this.startNetworkRecord(created.sessionId, input.record);
+      receipt = await this.stopNetworkRecord(created.sessionId);
+      if (input.replayTargetSessionId) {
+        const replay = await this.replayNetworkRecord(created.sessionId, {
+          receiptId: receipt.receiptId,
+          recordId: receipt.recordId,
+          targetSessionId: input.replayTargetSessionId,
+        });
+        replayed = replay.replayed;
+      }
+    }
+    return { sessionId: created.sessionId, status, instruction, ticketUrl: ticket.ticketUrl, receipt, replayed };
   }
 
   async stopSession(sessionId: string): Promise<void> {
