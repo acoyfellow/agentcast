@@ -242,6 +242,26 @@ import {
 
 Raw URLs, cookies, Authorization, request/response bodies, and query strings are dropped from receipts. Encrypted HARs stay behind a capability-gated store; they are not a public API.
 
+## Host HTTP client
+
+My AX and other hosts should drive AgentCast over ordinary HTTPS. Viewer/CDP stay on a separate WebSocket. There is no SSE control path.
+
+```typescript
+import { AgentCastHost } from 'agentcast/host';
+
+const host = new AgentCastHost({
+  origin: 'https://api.agentcast.dev',
+  token,
+});
+
+const { sessionId } = await host.createSession({ name: 'my-ax' });
+await host.instruct(sessionId, 'goto https://agentcast.dev');
+await host.startNetworkRecord(sessionId, { maxDurationMs: 8_000, maxEntries: 20 });
+const receipt = await host.stopNetworkRecord(sessionId);
+```
+
+`AgentCastHost` refuses `*.workers.dev`, sends only `/api/*` HTTP, wakes the browser before HAR start, and rejects receipts that still contain cookies, Authorization, raw URLs, or extra fields.
+
 ## Requirements
 
 - Cloudflare Workers with Containers binding

@@ -109,3 +109,18 @@ export {
   type RawNetworkCapture,
 } from './network-har.js';
 
+export {
+  AGENTCAST_PRODUCTION_API_ORIGIN,
+  AGENTCAST_PRODUCTION_APP_ORIGIN,
+  AgentCastHost,
+  assertPublicNetworkReceipt,
+  classifyAgentCastPath,
+  resolveAgentCastApiOrigin,
+  type AgentCastHostOptions,
+  type AgentCastTransport,
+  type CreateHostSessionRequest,
+  type HostInstructionResult,
+  type HostNetworkReplayResult,
+  type HostSessionStatus,
+} from './host.js';
+
