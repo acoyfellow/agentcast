@@ -66,6 +66,11 @@ describe('agentcast host HTTP client', () => {
         if (url.endsWith('/api/session') && init?.method === 'POST') return { success: true, data: { sessionId } };
         if (url.endsWith(`/api/session/${sessionId}/wake`)) return { success: true, status: { id: sessionId, status: 'ready' } };
         if (url.endsWith(`/api/session/${sessionId}/instruction`)) return { success: true, response: 'ok' };
+        if (url.endsWith(`/api/session/${sessionId}/input/click`)) return { success: true, x: 10, y: 20 };
+        if (url.endsWith(`/api/session/${sessionId}/input/type`)) return { success: true, length: 4 };
+        if (url.endsWith(`/api/session/${sessionId}/input/key`)) return { success: true, key: 'Enter' };
+        if (url.endsWith(`/api/session/${sessionId}/authn/challenge`)) return { success: true, pending: false, rpId: null, origin: null };
+        if (url.endsWith(`/api/session/${sessionId}/authn/complete`)) return { success: true, pending: false };
         if (url.endsWith(`/api/session/${sessionId}/network-har/start`)) {
           return { success: true, record: { recordId, status: 'recording', startedAt: 1 } };
         }
@@ -78,6 +83,11 @@ describe('agentcast host HTTP client', () => {
 
     expect(await host.createSession({ name: 'my-ax' })).toEqual({ sessionId });
     expect((await host.instruct(sessionId, 'goto https://agentcast.dev')).success).toBe(true);
+    expect((await host.click(sessionId, 10, 20)).success).toBe(true);
+    expect((await host.type(sessionId, 'demo')).success).toBe(true);
+    expect((await host.key(sessionId, 'Enter')).success).toBe(true);
+    expect(await host.authnChallenge(sessionId)).toEqual({ pending: false, rpId: null, origin: null });
+    expect((await host.authnComplete(sessionId)).success).toBe(true);
     const record = await host.startNetworkRecord(sessionId, { maxDurationMs: 8_000, maxEntries: 20 });
     const receipt = await host.stopNetworkRecord(sessionId);
     const listed = await host.listNetworkReceipts(sessionId);
@@ -91,6 +101,11 @@ describe('agentcast host HTTP client', () => {
     expect(calls.map((call) => `${call.method} ${new URL(call.url).pathname}`)).toEqual([
       'POST /api/session',
       'POST /api/session/123e4567-e89b-42d3-a456-426614174000/instruction',
+      'POST /api/session/123e4567-e89b-42d3-a456-426614174000/input/click',
+      'POST /api/session/123e4567-e89b-42d3-a456-426614174000/input/type',
+      'POST /api/session/123e4567-e89b-42d3-a456-426614174000/input/key',
+      'GET /api/session/123e4567-e89b-42d3-a456-426614174000/authn/challenge',
+      'POST /api/session/123e4567-e89b-42d3-a456-426614174000/authn/complete',
       'POST /api/session/123e4567-e89b-42d3-a456-426614174000/wake',
       'POST /api/session/123e4567-e89b-42d3-a456-426614174000/network-har/start',
       'POST /api/session/123e4567-e89b-42d3-a456-426614174000/network-har/stop',

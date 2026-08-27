@@ -166,6 +166,35 @@ export class AgentCastHost {
     return payload as HostSessionStatus;
   }
 
+  async authnChallenge(sessionId: string): Promise<{ pending: boolean; rpId: string | null; origin: string | null }> {
+    const payload = await this.requestJson('GET', `/api/session/${sessionId}/authn/challenge`);
+    const record = payload && typeof payload === 'object' ? payload as { pending?: unknown; rpId?: unknown; origin?: unknown } : {};
+    return {
+      pending: record.pending === true,
+      rpId: typeof record.rpId === 'string' ? record.rpId : null,
+      origin: typeof record.origin === 'string' ? record.origin : null,
+    };
+  }
+
+  async authnComplete(sessionId: string): Promise<HostInstructionResult> {
+    return this.requestJson('POST', `/api/session/${sessionId}/authn/complete`, { completed: true }) as Promise<HostInstructionResult>;
+  }
+
+  async click(sessionId: string, x: number, y: number): Promise<HostInstructionResult> {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new RangeError('x and y are required');
+    return this.requestJson('POST', `/api/session/${sessionId}/input/click`, { x, y }) as Promise<HostInstructionResult>;
+  }
+
+  async type(sessionId: string, text: string): Promise<HostInstructionResult> {
+    if (!text || text.length > 4000) throw new RangeError('text is required');
+    return this.requestJson('POST', `/api/session/${sessionId}/input/type`, { text }) as Promise<HostInstructionResult>;
+  }
+
+  async key(sessionId: string, key: string): Promise<HostInstructionResult> {
+    if (!key.trim() || key.length > 40) throw new RangeError('key is required');
+    return this.requestJson('POST', `/api/session/${sessionId}/input/key`, { key: key.trim() }) as Promise<HostInstructionResult>;
+  }
+
   async instruct(sessionId: string, instruction: string): Promise<HostInstructionResult> {
     if (!instruction.trim()) throw new RangeError('Instruction is required');
     return this.requestJson('POST', `/api/session/${sessionId}/instruction`, { instruction }) as Promise<HostInstructionResult>;
