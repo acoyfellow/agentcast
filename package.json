@@ -30,6 +30,14 @@
       "types": "./dist/host.d.ts",
       "import": "./dist/host.js"
     },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.js"
+    },
+    "./approval": {
+      "types": "./dist/approval.d.ts",
+      "import": "./dist/approval.js"
+    },
     "./har-route": {
       "types": "./dist/har-route.d.ts",
       "import": "./dist/har-route.js"

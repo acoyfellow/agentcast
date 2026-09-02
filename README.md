@@ -10,6 +10,12 @@ AgentCast extends the [Cloudflare Agents SDK](https://developers.cloudflare.com/
 - **Live debugging**: Debug agents by watching them, not guessing from logs
 - **Session tracking**: Monitor what your agents are doing via activity timestamps and session status
 - **Reusable HARs**: Start a bounded capture, persist an encrypted HAR plus a redacted network receipt, and replay that receipt into another same-tenant session. Public artifacts never include cookies, Authorization, raw paths, query strings, or bodies.
+- **Secure MCP contracts**: Share one strict browser-tool registry across capability-protected remote MCP and an optional read-only WebMCP surface.
+
+## Integration guides
+
+- [Remote MCP](docs/mcp.md)
+- [WebMCP](docs/webmcp.md)
 
 ## Installation
 

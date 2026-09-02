@@ -115,6 +115,19 @@ export {
 } from './host.js';
 
 export {
+  AGENTCAST_CONTROL_PLANE_OPENAPI,
+  AGENTCAST_MCP_PROTOCOL_VERSION,
+  AGENTCAST_MCP_SERVER_NAME,
+  AGENTCAST_MCP_SERVER_VERSION,
+} from './mcp.js';
+
+export {
+  signAgentCastApprovalAssertion,
+  verifyAgentCastApprovalAssertion,
+  type AgentCastApprovalAssertion,
+} from './approval.js';
+
+export {
   assertScrubbedHar,
   createFetchFromHar,
   loadHarEntries,
